@@ -87,7 +87,7 @@ class disambiguation(object):
             if current_event not in self.event_sense_mapping.keys():
                 self.event_sense_mapping[current_event] = syn_the_best_match
             else:
-                logging.warning('{} is saved before'.format(current_event), "the former result is {}".format(self.event_sense_mapping[current_event]))
+                logging.warning( '{} is saved before. the former result is {}'.format(current_event, self.event_sense_mapping[current_event]) )
                 arg_key_a = [*self.event_sense_mapping[current_event].keys()]
                 arg_value_a = [*self.event_sense_mapping[current_event].values()]
                 arg_key_b = [*syn_the_best_match.keys()]
@@ -103,8 +103,7 @@ class disambiguation(object):
                         arg_value_a.insert(index_b, arg_value_b[index_b])
                 
                 self.event_sense_mapping[current_event] = dict(zip(arg_key_a, arg_value_a))
-                logging.warning('{} is saved before'.format(current_event), "the latter result is {}".format(self.event_sense_mapping[current_event]))
-
+                logging.warning('{} is saved before. the latter result is {}'.format(current_event, self.event_sense_mapping[current_event]) )
                     
         
         

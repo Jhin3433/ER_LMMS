@@ -107,4 +107,4 @@ venv.bak/
 data/
 external/
 
-pickle_save/
+pickle_save/*
