@@ -24,11 +24,15 @@ from transformers_encoder import TransformersEncoder
 from vectorspace import SensesVSM
 from wn_utils import WN_Utils
 from collections import Counter
+from logging.handlers import SMTPHandler
 
+import numpy as np
+import traceback
 import pickle
 import logging
 import sys
 import spacy
+import json
 base_path = "../SimCSE-main/LDCCorpus/gigaword_eng_5/data/nyt_online_4"
 
 
@@ -39,15 +43,15 @@ class disambiguation(object):
         self.event_sense_mapping = {}
         self.en_nlp = spacy.load('/home/anaconda3/envs/LMMS/lib/python3.6/site-packages/en_core_web_sm/en_core_web_sm-1.2.0')  # required for lemmatization and POS-tagging
         print("Spacy load successfully!")
-        
-        with open('./pickle_save/wsd_encoder.pkl', "rb") as wsd:
+
+
+        with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
             self.wsd_encoder = pickle.load(wsd)
-        with open('./pickle_save/senses_vsm.pkl', "rb") as senses:
+        with open('./results_save/senses_vsm.pkl', "rb") as senses:
             self.senses_vsm = pickle.load(senses) 
-        
         self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
+    
         # # NLM/LMMS paths and parameters
-        # # vecs_path = '/media/dan/ElementsWORK/-xxlarge-v2/albertlmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
         # vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
 
         # wsd_encoder_cfg = {
@@ -62,7 +66,11 @@ class disambiguation(object):
         # print('Loading NLM and sense embeddings ...')  # (takes a while)
         # self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
         # self.senses_vsm = SensesVSM(vecs_path, normalize=True)
-        # print('Done')
+        # with open('./results_save/wsd_encoder.pkl', "wb") as wsd: 
+        #     pickle.dump(self.wsd_encoder, wsd)
+        # with open('./results_save/senses_vsm.pkl', "wb") as senses: 
+        #     pickle.dump(self.senses_vsm, senses)
+        print('Done')
 
     def LMMS(self, sub_doc, ctx_embeddings, event_target_idxs):
 
@@ -80,14 +88,18 @@ class disambiguation(object):
                     the_best_match = self.wn_utils.sk2syn(sk)
                     the_best_sim = sim
                     # syn_the_best_match.append({sub_doc[target_idx]: [the_best_match, the_best_sim]})
-                    syn_the_best_match[sub_doc[target_idx].text] = [the_best_match, the_best_sim] #sub_doc[target_idx]是spacy的token类
+                    syn_the_best_match[sub_doc[target_idx].text] = [the_best_match._name, np.float(the_best_sim)] #sub_doc[target_idx]是spacy的token类
+                    #np.float不用，会导致json.dump时报错 --> TypeError: Object of type 'float32' is not JSON serializable解决方案
                 else:
                     continue
         
             if current_event not in self.event_sense_mapping.keys():
                 self.event_sense_mapping[current_event] = syn_the_best_match
+            elif self.event_sense_mapping[current_event] == syn_the_best_match:
+                logger.warning( '{} is saved before. No Changed'.format(current_event) )
+                continue
             else:
-                logging.warning( '{} is saved before. the former result is {}'.format(current_event, self.event_sense_mapping[current_event]) )
+                logger.warning( '{} is saved before. Former: {}'.format(current_event, self.event_sense_mapping[current_event]) )
                 arg_key_a = [*self.event_sense_mapping[current_event].keys()]
                 arg_value_a = [*self.event_sense_mapping[current_event].values()]
                 arg_key_b = [*syn_the_best_match.keys()]
@@ -103,13 +115,14 @@ class disambiguation(object):
                         arg_value_a.insert(index_b, arg_value_b[index_b])
                 
                 self.event_sense_mapping[current_event] = dict(zip(arg_key_a, arg_value_a))
-                logging.warning('{} is saved before. the latter result is {}'.format(current_event, self.event_sense_mapping[current_event]) )
+                logger.warning('{} is saved before. Latter: {}'.format(current_event, self.event_sense_mapping[current_event]) )
                     
         
         
     def process_sentence(self, sentence, all_events):
         sub_doc = self.en_nlp(sentence)
         tokens = [t.text for t in sub_doc]
+        ctx_embeddings = None
         ctx_embeddings = self.wsd_encoder.token_embeddings([tokens])[0]
         words = []
         for word in sub_doc:
@@ -138,9 +151,10 @@ class disambiguation(object):
 
 
 def event_sense_mapping(dis, file_name):
-    with open(os.path.join(base_path , file_name)) as f:
-        for line in f:
-            raw_single_data = line.split("|SENT")
+    
+    with open(os.path.join(base_path, file_name)) as f:
+        for line_num, line in enumerate(f): #line_num从0开始
+            raw_single_data = line.split("|SENT") #一个file
             for sentence in raw_single_data:
                 ele = sentence.strip("|").split("|")
                 sentence = ele[2]
@@ -149,24 +163,53 @@ def event_sense_mapping(dis, file_name):
                     if ele[index] == "TUP":
                         all_events.append([])  
                     else:
-                        all_events[-1].append(ele[index])
+                        all_events[-1].append(ele[index])  
+                        
+                try:
+                    dis.process_sentence(sentence, all_events)
+                except Exception as e:
+                    logger.error(e)
+                    logger.error("{} in {} error. Then sentence is {}".format(line_num, raw_single_data[0].split("|")[0], sentence), exc_info=sys.exc_info())
+                    # logging.error(traceback.format_exc())
+            logger.info("{} event mapping finished!".format(raw_single_data[0].split("|")[0]))
+            
+
+            if line_num % 1000 == 0:  #每1000个文件保存一次
+                with open('./results_save/event_sense_mapping_{}.json'.format(file_name[0:4]), 'w') as esm:
+                    json.dump(dis.event_sense_mapping, esm)
+                    esm.close()
                     
-                dis.process_sentence(sentence, all_events)
-            logging.info("{} event mapping finished!".format(raw_single_data[0].split("|")[0]))
+        with open('./results_save/event_sense_mapping_{}.json'.format(file_name[0:4]), 'w') as esm:
+                json.dump(dis.event_sense_mapping, esm)
+                esm.close()
         f.close()
 
-    with open("./pickle_save/event_sense_mapping_{}.pkl".format(file_name[0:4]), "wb") as esm:
-        pickle.dump(dis.event_sense_mapping, esm)
-    logging.info("All the events in {} mapping finished!".format(file_name))
+
+    logger.info("All the events in {} mapping finished!".format(file_name))
 
 if __name__ == '__main__':
     dis = disambiguation()
     for i in range(1, len(sys.argv)):
         file_prefix = sys.argv[i]
+        logging.basicConfig(filename='1_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
+        global logger
+        logger = logging.getLogger('__name__')
+        mail_handler = SMTPHandler(
+            mailhost=('smtp.qq.com', 25),
+            fromaddr='524139952@qq.com',
+            toaddrs='weishuchong@iie.ac.cn',
+            subject='代码出现问题啦！！！',
+            credentials=('524139952@qq.com', 'wyftpscaofhucbdg'))
+        # 4. 单独设置 mail_handler 的日志级别为 ERROR
+        mail_handler.setLevel(logging.ERROR)
+        # 5. 将 Handler 添加到 logger 中
+        logger.addHandler(mail_handler)
+        
         dis.event_sense_mapping = {}
-        logging.basicConfig(filename='1_event_sense_mapping_{}.log'.format(file_prefix), level=logging.DEBUG)
         file_name = file_prefix + ".txt"    
         event_sense_mapping(dis, file_name)
+
+
 
     
     #全部运行
