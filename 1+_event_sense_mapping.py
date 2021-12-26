@@ -122,8 +122,12 @@ class disambiguation(object):
     def process_sentence(self, sentence, all_events):
         sub_doc = self.en_nlp(sentence)
         tokens = [t.text for t in sub_doc]
-        ctx_embeddings = None
-        ctx_embeddings = self.wsd_encoder.token_embeddings([tokens])[0]
+        ctx_embeddings = self.wsd_encoder.token_embeddings([tokens])
+        if ctx_embeddings == None:
+            return 
+        else:
+            ctx_embeddings = ctx_embeddings[0]
+
         words = []
         for word in sub_doc:
             words.append(word.text)
@@ -154,6 +158,9 @@ def event_sense_mapping(dis, file_name):
     
     with open(os.path.join(base_path, file_name)) as f:
         for line_num, line in enumerate(f): #line_num从0开始
+            
+            # if line_num != 1888:# 有CudaError是从这一行开始的
+            #     continue
             raw_single_data = line.split("|SENT") #一个file
             for sentence in raw_single_data:
                 ele = sentence.strip("|").split("|")

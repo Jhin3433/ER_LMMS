@@ -170,8 +170,13 @@ class TransformersEncoder():
             assert len(sent_encodings) == len(sent_attention)
 
 
-        input_ids = th.tensor(input_ids).to('cuda')
+        input_ids = th.tensor(input_ids).to('cuda') #self.nlm_tokenizer.decode(input_ids[0])
         input_mask = th.tensor(input_mask).to('cuda')
+        
+        #因为seq长度超出最大长度，导致Cuda出错？
+        if input_ids.shape[1] > self.nlm_config['max_seq_len']:
+            # input_ids = input_ids[0][:self.nlm_config['max_seq_len']]
+            return None
         with th.no_grad():
 
             if self.nlm_config['model_name_or_path'].startswith('xlnet-'):
