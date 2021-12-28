@@ -19,6 +19,7 @@
 #     len(map_sk2syn)
 import os
 import numpy as np
+from regex import sub
 from transformers_encoder import TransformersEncoder
 from vectorspace import SensesVSM
 from wn_utils import WN_Utils
@@ -69,7 +70,7 @@ class disambiguation(object):
         #     pickle.dump(self.wsd_encoder, wsd)
         # with open('./results_save/senses_vsm.pkl', "wb") as senses: 
         #     pickle.dump(self.senses_vsm, senses)
-        print('Done')
+        # print('Done')
 
     def LMMS(self, sub_doc, ctx_embeddings, event_target_idxs):
 
@@ -118,12 +119,18 @@ class disambiguation(object):
                     
         
         
-    def process_sentence(self, sentence, all_events):
-        sub_doc = self.en_nlp(sentence)
-        tokens = [t.text for t in sub_doc]
-        ctx_embeddings = self.wsd_encoder.token_embeddings([tokens])
+    def process_sentence(self, sentence_batch, all_events_batch):
+        sub_doc_batch = []
+        tokens_batch = []
+        for sentence in sentence_batch:
+            sub_doc = self.en_nlp(sentence)
+            sub_doc_batch.append(sub_doc)
+        for sub_doc in sub_doc_batch:
+            tokens = [t.text for t in sub_doc]
+            tokens_batch.append(tokens)
+        ctx_embeddings = self.wsd_encoder.token_embeddings(tokens_batch)
         if ctx_embeddings == None:
-            return 
+            logger.error('超过了最大长度！')
         else:
             ctx_embeddings = ctx_embeddings[0]
 
@@ -154,30 +161,44 @@ class disambiguation(object):
 
 
 def event_sense_mapping(dis, file_name):
+    batch = 64
+    sentence_batch = []
+    all_events_batch = []
+    line_num_batch = []
     
     with open(os.path.join(base_path, file_name)) as f:
         for line_num, line in enumerate(f): #line_num从0开始
-            
-            # if line_num != 1888:# 有CudaError是从这一行开始的
+            line_num_batch.append(line_num)#添加batch
+
+            # if line_num != 1888:# 1995.txt有CudaError是从这一行开始的，LMMS输入长度太长
             #     continue
             raw_single_data = line.split("|SENT") #一个file
             for sentence in raw_single_data:
                 ele = sentence.strip("|").split("|")
                 sentence = ele[2]
+                sentence_batch.append(sentence) #添加batch
                 all_events = []
                 for index in range(3, len(ele)):
                     if ele[index] == "TUP":
                         all_events.append([])  
                     else:
-                        all_events[-1].append(ele[index])  
-                        
-                try:
-                    dis.process_sentence(sentence, all_events)
-                except Exception as e:
-                    logger.error(e)
-                    logger.error("{} in {} error. Then sentence is {}".format(line_num, raw_single_data[0].split("|")[0], sentence), exc_info=sys.exc_info())
+                        all_events[-1].append(ele[index]) 
+                all_events_batch.append(all_events)       #添加batch
+                if len(sentence_batch) == batch and len(all_events_batch) == batch:
+                    try:
+                        dis.process_sentence(sentence_batch, all_events_batch)
+                        for line_num in line_num_batch:
+                            logger.info("{} event mapping finished!".format(line_num))
+                        sentence_batch = []
+                        all_events_batch = []
+                        line_num_batch = []
+                    except Exception as e:
+                        logger.error(e)
+                        line_string = ''
+                        for line_num in line_num_batch:
+                            line_string = line_string + ' ' + str(line_num)
+                        logger.error("The {} in this batch exists error".format(line_string), exc_info=sys.exc_info())
                     # logging.error(traceback.format_exc())
-            logger.info("{} event mapping finished!".format(raw_single_data[0].split("|")[0]))
             
 
             if line_num % 1000 == 0:  #每1000个文件保存一次
@@ -197,7 +218,7 @@ if __name__ == '__main__':
     dis = disambiguation()
     for i in range(1, len(sys.argv)):
         file_prefix = sys.argv[i]
-        logging.basicConfig(filename='1_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
+        logging.basicConfig(filename='./log/1++_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
         global logger
         logger = logging.getLogger('__name__')
         mail_handler = SMTPHandler(

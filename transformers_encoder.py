@@ -155,6 +155,15 @@ class TransformersEncoder():
         
         batch_max_len = max([len(self.flatten_encodings(e)) for e in batch_sent_encodings]) + 2
 
+
+        #判断是否超过最大长度，如果超过了，最大长度取第二个
+        batch_len = [len(self.flatten_encodings(e)) for e in batch_sent_encodings]
+        if batch_max_len > self.nlm_config['max_seq_len']:
+            while (batch_max_len - 2) in batch_len:
+                batch_len.remove(batch_max_len-2)
+        batch_max_len = max(batch_len) + 2
+                
+
         # prepare nlm input
         input_ids, input_mask = [], []
         for sent_tokens, sent_encodings in zip(batch_sent_tokens, batch_sent_encodings):
@@ -162,10 +171,11 @@ class TransformersEncoder():
             sent_encodings = self.flatten_encodings(sent_encodings)
             sent_encodings = self.add_special_encodings(sent_encodings)
             sent_encodings = self.add_padding_encodings(sent_encodings, batch_max_len)
-            input_ids.append(sent_encodings)
-
+            if len(sent_encodings) < self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
+                input_ids.append(sent_encodings)
             sent_attention = self.get_attention_mask(sent_encodings)
-            input_mask.append(sent_attention)
+            if len(sent_attention) < self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
+                input_mask.append(sent_attention)
 
             assert len(sent_encodings) == len(sent_attention)
 

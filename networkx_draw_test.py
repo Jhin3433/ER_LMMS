@@ -1,12 +1,15 @@
-import matplotlib.pyplot as plt
-import networkx as nx
-G = nx.petersen_graph()
-subax1 = plt.subplot(121)
-nx.draw(G, with_labels=True, font_weight='bold')
-subax2 = plt.subplot(122)
-nx.draw_shell(G, nlist=[range(5, 10), range(5)], with_labels=True, font_weight='bold')
-plt.savefig("graph.png")
+# import matplotlib.pyplot as plt
+# import networkx as nx
+# G = nx.petersen_graph()
+# subax1 = plt.subplot(121)
+# nx.draw(G, with_labels=True, font_weight='bold')
+# subax2 = plt.subplot(122)
+# nx.draw_shell(G, nlist=[range(5, 10), range(5)], with_labels=True, font_weight='bold')
+# plt.savefig("graph.png")
 
+
+
+# -------------------------------------------------------------------------------------
 # import matplotlib.pyplot as plt
 # import networkx as nx
 
@@ -49,3 +52,14 @@ plt.savefig("graph.png")
 # nx.draw(G, pos=pos, with_labels=True)
 # plt.show()
 # plt.savefig("graph.png")
+
+
+
+import matplotlib.pyplot as plt
+import networkx as nx
+G = nx.path_graph(4)
+pos = nx.spring_layout(G)
+nx.draw_networkx(G, pos=pos)
+# nx.draw(esg.G)
+plt.show()
+plt.savefig("graph.png")
