@@ -44,9 +44,13 @@ base_path = "../SimCSE-main/LDCCorpus/gigaword_eng_5/data/nyt_online_4"
 #nltk 下载wordnet数据集
 
 class disambiguation(object):
-    def __init__(self) -> None:
+    def __init__(self, file_prefix) -> None:
         super().__init__()
-        self.event_sense_mapping = {}
+        if os.path.exists('./results_save/event_sense_mapping_{}.json'.format(file_prefix)):
+            with open('./results_save/event_sense_mapping_{}.json'.format(file_prefix), 'r') as esm:
+                self.event_sense_mapping = json.load(esm)
+        logger.info('{} load successfully!'.format('event_sense_mapping_{}.json'.format(file_prefix)))
+
         self.en_nlp = spacy.load('/home/anaconda3/envs/LMMS/lib/python3.6/site-packages/en_core_web_sm/en_core_web_sm-1.2.0')  # required for lemmatization and POS-tagging
         # self.en_nlp = spacy.load('/home/iielct/anaconda3/envs/LMMS/lib/python3.6/site-packages/en_core_web_sm/en_core_web_sm-1.2.0')  # required for lemmatization and POS-tagging
         print("Spacy load successfully!")
@@ -196,7 +200,7 @@ class disambiguation(object):
 
 
 
-def event_sense_mapping(dis, file_name):
+def event_sense_mapping(dis, file_name, line_continue):
     batch = 32
     sentence_batch = []
     all_events_batch = []
@@ -204,8 +208,9 @@ def event_sense_mapping(dis, file_name):
     
     with open(os.path.join(base_path, file_name)) as f:
         for line_num, line in enumerate(f): #line_num从0开始
-            # if line_num != 860:# 2006.txt 这一行报错      transformers_encoder.py : if input_ids.shape[1] > self.nlm_config['max_seq_len']
-            #     continue
+            if line_num <= int(line_continue):
+                logger.info("The line {} has processed before!".format(line_num))
+                continue
             line_num_batch.append(line_num)#添加batch
 
             # if line_num != 1888:# 1995.txt有CudaError是从这一行开始的，LMMS输入长度太长
@@ -266,26 +271,26 @@ def event_sense_mapping(dis, file_name):
     logger.info("All the events in {} mapping finished!".format(file_name))
 
 if __name__ == '__main__':
-    dis = disambiguation()
-    for i in range(1, len(sys.argv)):
-        file_prefix = sys.argv[i]
-        logging.basicConfig(filename='./log/1++_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
-        global logger
-        logger = logging.getLogger('__name__')
-        mail_handler = SMTPHandler(
-            mailhost=('smtp.qq.com', 25),
-            fromaddr='524139952@qq.com',
-            toaddrs='weishuchong19@mails.ucas.ac.cn',
-            subject='代码出现问题啦！！！',
-            credentials=('524139952@qq.com', 'wyftpscaofhucbdg'))
-        # 4. 单独设置 mail_handler 的日志级别为 ERROR
-        mail_handler.setLevel(logging.ERROR)
-        # 5. 将 Handler 添加到 logger 中
-        logger.addHandler(mail_handler)
-        
-        dis.event_sense_mapping = {}
-        file_name = file_prefix + ".txt"    
-        event_sense_mapping(dis, file_name)
+
+    file_prefix = sys.argv[1]
+    line_continue = sys.argv[2]
+    logging.basicConfig(filename='./log/1++_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
+    global logger
+    logger = logging.getLogger('__name__')
+    mail_handler = SMTPHandler(
+        mailhost=('smtp.qq.com', 25),
+        fromaddr='524139952@qq.com',
+        toaddrs='weishuchong19@mails.ucas.ac.cn',
+        subject='代码出现问题啦！！！',
+        credentials=('524139952@qq.com', 'wyftpscaofhucbdg'))
+    # 4. 单独设置 mail_handler 的日志级别为 ERROR
+    mail_handler.setLevel(logging.ERROR)
+    # 5. 将 Handler 添加到 logger 中
+    logger.addHandler(mail_handler)
+    
+    file_name = file_prefix + ".txt"   
+    dis = disambiguation(file_prefix) 
+    event_sense_mapping(dis, file_name, line_continue)
 
 
 
