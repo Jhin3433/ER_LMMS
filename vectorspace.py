@@ -99,12 +99,12 @@ class SensesVSM(object):
         v2 = self.get_vec(label2)
         return np.dot(v1, v2).tolist()
 
-    def match_senses(self, vec, lemma=None, postag=None, topn=100):
-        relevant_sks = []
-        for sk in self.labels:
-            if (lemma is None) or (self.sk_lemmas[sk] == lemma):
-                if (postag is None) or (self.sk_postags[sk] == postag):
-                    relevant_sks.append(sk)
+    def match_senses(self, vec, relevant_sks, topn=100):
+        # relevant_sks = []
+        # for sk in self.labels:
+        #     if (lemma is None) or (self.sk_lemmas[sk] == lemma):
+        #         if (postag is None) or (self.sk_postags[sk] == postag):
+        #             relevant_sks.append(sk)
 
         relevant_sks_idxs = [self.indices[sk] for sk in relevant_sks]
         sims = np.dot(self.vectors[relevant_sks_idxs], np.array(vec))

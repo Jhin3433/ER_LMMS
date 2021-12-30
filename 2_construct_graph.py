@@ -69,6 +69,7 @@ class event_sense_graph:
     def add_graph_to_existing(self, file_name):
         self.single_graph_from_json(file_name)
         self.synset_link_synset()
+        nx.write_gpickle(self.G, "results_save/event_sense_mapping_graph.gpickle")
 
                 
 if __name__ == "__main__":

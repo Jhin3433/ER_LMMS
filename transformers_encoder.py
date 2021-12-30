@@ -152,17 +152,20 @@ class TransformersEncoder():
     def get_token_embeddings_batch(self, batch_sent_tokens, return_tokens=True):
 
         batch_sent_encodings = [self.get_encodings(sent_tokens) for sent_tokens in batch_sent_tokens]        
-        
-        batch_max_len = max([len(self.flatten_encodings(e)) for e in batch_sent_encodings]) + 2
-
-
+        batch_len_before = [len(self.flatten_encodings(e)) for e in batch_sent_encodings]
+        batch_len = []
+        exceed_len_index = []
         #判断是否超过最大长度，如果超过了，最大长度取第二个
-        batch_len = [len(self.flatten_encodings(e)) for e in batch_sent_encodings]
-        if batch_max_len > self.nlm_config['max_seq_len']:
-            while (batch_max_len - 2) in batch_len:
-                batch_len.remove(batch_max_len-2)
+        for i, bl in enumerate(batch_len_before):
+            if bl + 2 > self.nlm_config['max_seq_len']:
+                exceed_len_index.append(i)
+            else:
+                batch_len.append(bl)
         batch_max_len = max(batch_len) + 2
-                
+        if exceed_len_index != []:
+            batch_sent_tokens = [batch_sent_tokens[i] for i in range(0, len(batch_sent_tokens), 1) if i not in exceed_len_index]
+            batch_sent_encodings = [batch_sent_encodings[i] for i in range(0, len(batch_sent_encodings), 1) if i not in exceed_len_index]
+       
 
         # prepare nlm input
         input_ids, input_mask = [], []
@@ -171,10 +174,10 @@ class TransformersEncoder():
             sent_encodings = self.flatten_encodings(sent_encodings)
             sent_encodings = self.add_special_encodings(sent_encodings)
             sent_encodings = self.add_padding_encodings(sent_encodings, batch_max_len)
-            if len(sent_encodings) < self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
+            if len(sent_encodings) <= self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
                 input_ids.append(sent_encodings)
             sent_attention = self.get_attention_mask(sent_encodings)
-            if len(sent_attention) < self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
+            if len(sent_attention) <= self.nlm_config['max_seq_len']: #判断是否超过最大长度，超过了不添加
                 input_mask.append(sent_attention)
 
             assert len(sent_encodings) == len(sent_attention)
@@ -184,9 +187,8 @@ class TransformersEncoder():
         input_mask = th.tensor(input_mask).to('cuda')
         
         #因为seq长度超出最大长度，导致Cuda出错？
-        if input_ids.shape[1] > self.nlm_config['max_seq_len']:
-            # input_ids = input_ids[0][:self.nlm_config['max_seq_len']]
-            return None
+        assert input_ids.shape[1] <= self.nlm_config['max_seq_len']
+
         with th.no_grad():
 
             if self.nlm_config['model_name_or_path'].startswith('xlnet-'):
@@ -254,7 +256,7 @@ class TransformersEncoder():
             combined_batch_embeddings.append(combined_sent_embeddings)
 
         # return [combined_batch_embeddings]
-        return combined_batch_embeddings
+        return (combined_batch_embeddings , exceed_len_index)
 
     def token_embeddings(self, batch_sent_tokens, return_tokens=True):
         return self.get_token_embeddings_batch(batch_sent_tokens, return_tokens=return_tokens)
