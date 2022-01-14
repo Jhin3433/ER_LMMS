@@ -35,6 +35,7 @@ import sys
 import spacy
 import json
 import sys
+from GPU_Monitor import get_GpuInfo
 base_path = "../SimCSE-main/LDCCorpus/gigaword_eng_5/data/nyt_online_4"
 # base_path = "./nyt_online_4"
 
@@ -42,6 +43,15 @@ base_path = "../SimCSE-main/LDCCorpus/gigaword_eng_5/data/nyt_online_4"
 #使用指令 python 1++_event_sense_mapping.py 1994 1995 1996
 #transfer to another machine : base_path, spacy.load路径
 #nltk 下载wordnet数据集
+
+
+import logging
+
+import GPUtil
+import mxnet as mx
+import mxnet.ndarray as nd
+
+
 
 class disambiguation(object):
     def __init__(self, file_prefix) -> None:
@@ -55,31 +65,33 @@ class disambiguation(object):
         # self.en_nlp = spacy.load('/home/iielct/anaconda3/envs/LMMS/lib/python3.6/site-packages/en_core_web_sm/en_core_web_sm-1.2.0')  # required for lemmatization and POS-tagging
         print("Spacy load successfully!")
 
-
-        with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
-            self.wsd_encoder = pickle.load(wsd)
-        with open('./results_save/senses_vsm.pkl', "rb") as senses:
-            self.senses_vsm = pickle.load(senses) 
-        self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
-    
-        # # NLM/LMMS paths and parameters
-        # vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
-        # wsd_encoder_cfg = {
-        #     'model_name_or_path': 'albert-xxlarge-v2',
-        #     'min_seq_len': 0,
-        #     'max_seq_len': 512,
-        #     'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
-        #     'layer_op': 'ws',
-        #     'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
-        #     'subword_op': 'mean'
-        # }
-        # print('Loading NLM and sense embeddings ...')  # (takes a while)
-        # self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
-        # self.senses_vsm = SensesVSM(vecs_path, normalize=True)
         # with open('./results_save/wsd_encoder.pkl', "wb") as wsd: 
         #     pickle.dump(self.wsd_encoder, wsd)
         # with open('./results_save/senses_vsm.pkl', "wb") as senses: 
         #     pickle.dump(self.senses_vsm, senses)
+        # with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
+        #     self.wsd_encoder = pickle.load(wsd)
+
+        # with open('./results_save/senses_vsm.pkl', "rb") as senses:
+        #     self.senses_vsm = pickle.load(senses) 
+
+        self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
+
+        # NLM/LMMS paths and parameters
+        vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
+        wsd_encoder_cfg = {
+            'model_name_or_path': 'albert-xxlarge-v2',
+            'min_seq_len': 0,
+            'max_seq_len': 512,
+            'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
+            'layer_op': 'ws',
+            'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
+            'subword_op': 'mean'
+        }
+        print('Loading NLM and sense embeddings ...')  # (takes a while)
+        self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
+        self.senses_vsm = SensesVSM(vecs_path, normalize=True)
+
         print('Done')
         
     def judge(self, lemma=None, postag=None):
@@ -201,7 +213,7 @@ class disambiguation(object):
 
 
 def event_sense_mapping(dis, file_name, line_continue):
-    batch = 32
+    batch = 16
     sentence_batch = []
     all_events_batch = []
     line_num_batch = []
@@ -209,8 +221,8 @@ def event_sense_mapping(dis, file_name, line_continue):
     with open(os.path.join(base_path, file_name)) as f:
         for line_num, line in enumerate(f): #line_num从0开始
             if line_num <= int(line_continue):
-                logger.info("The line {} has processed before!".format(line_num))
                 continue
+            logger.info("Process from line {}".format(line_num))
             line_num_batch.append(line_num)#添加batch
 
             # if line_num != 1888:# 1995.txt有CudaError是从这一行开始的，LMMS输入长度太长
@@ -235,12 +247,22 @@ def event_sense_mapping(dis, file_name, line_continue):
                         sentence_batch = []
                         all_events_batch = []
                         line_num_batch = []
+                        
+                        # GPU_Info = get_GpuInfo("127.0.0.1")
+                        # logger.info("GPU_memory : {}, Usage Rate : {}".format(GPU_Info[1], GPU_Info[2]))
+
                     except Exception as e:
                         # logger.error(e)
                         line_string = ''
                         for line_num in line_num_batch:
                             line_string = line_string + ' ' + str(line_num)
-                        logger.error("Year: {} Line: {} exists error".format(file_name, line_string), exc_info=sys.exc_info())  # logging.error(traceback.format_exc())
+                        
+                        logger.error("Year: {} Line: {} exists error. ".format(file_name, line_string), exc_info=sys.exc_info())  # logging.error(traceback.format_exc())
+
+                        # GPU_Info = get_GpuInfo("127.0.0.1")
+                        # logger.error("Year: {} Line: {} exists error. GPU_memory : {}, Usage Rate : {}".format(file_name, line_string, GPU_Info[1], GPU_Info[2]), exc_info=sys.exc_info())  # logging.error(traceback.format_exc())
+                        # memory_logger.log("CudaError!")    
+
                         with open('./results_save/event_sense_mapping_{}.json'.format(file_name[0:4]), 'w') as esm:
                             json.dump(dis.event_sense_mapping, esm)
                             esm.close() 
@@ -260,8 +282,11 @@ def event_sense_mapping(dis, file_name, line_continue):
             line_string = ''
             for line_num in line_num_batch:
                 line_string = line_string + ' ' + str(line_num)
-            logger.error("Year: {} Line: {} exists error".format(file_name, line_string), exc_info=sys.exc_info())
-                          
+            # logger.error("Year: {} Line: {} exists error".format(file_name, line_string), exc_info=sys.exc_info())
+            # memory_logger.log("CudaError!")  
+            # GPU_Info = get_GpuInfo("127.0.0.1")
+            logger.error("Year: {} Line: {} exists error. ".format(file_name, line_string), exc_info=sys.exc_info())  # logging.error(traceback.format_exc())
+
         with open('./results_save/event_sense_mapping_{}.json'.format(file_name[0:4]), 'w') as esm:
                 json.dump(dis.event_sense_mapping, esm)
                 esm.close()
@@ -277,6 +302,8 @@ if __name__ == '__main__':
     logging.basicConfig(filename='./log/1++_event_sense_mapping_{}.log'.format(file_prefix), format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
     global logger
     logger = logging.getLogger('__name__')
+
+
     mail_handler = SMTPHandler(
         mailhost=('smtp.qq.com', 25),
         fromaddr='524139952@qq.com',
@@ -319,5 +346,26 @@ if __name__ == '__main__':
 
                           
                 
+# global memory_logger
+# memory_logger = MemoryLogger(0)
+# class MemoryLogger:
+#     def __init__(self, device_id: int):
+#         gpu = GPUtil.getGPUs()[device_id]
+#         logger.info(f'Initializing: Used memory = {gpu.memoryUsed}MiB, Free memory = {gpu.memoryFree}MiB, '
+#                      f'Total memory = {gpu.memoryTotal}MiB')
 
+#         self.device_id = device_id
+#         self.currentMemoryUsed = gpu.memoryUsed
+#         self.allocatedMemory = gpu.memoryUsed
+#         self.context = mx.gpu(device_id)
+
+#     def log(self, mark: str):
+#         # synchronize
+#         nd.waitall()
+#         gpu = GPUtil.getGPUs()[self.device_id]
+#         freeMem = gpu.memoryFree
+#         usedMem = gpu.memoryUsed
+#         logger.error(f'{mark}: Allocate memory = {usedMem - self.allocatedMemory: .1f}MiB, '
+#                      f'Free memory = {freeMem: .1f}MiB, Increased memory = {usedMem - self.currentMemoryUsed: .1f}')
+#         self.currentMemoryUsed = usedMem
         

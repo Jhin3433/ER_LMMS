@@ -51,31 +51,32 @@ class disambiguation(object):
         # self.en_nlp = spacy.load('/home/iielct/anaconda3/envs/LMMS/lib/python3.6/site-packages/en_core_web_sm/en_core_web_sm-1.2.0')  # required for lemmatization and POS-tagging
         print("Spacy load successfully!")
 
-
-        with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
-            self.wsd_encoder = pickle.load(wsd)
-        with open('./results_save/senses_vsm.pkl', "rb") as senses:
-            self.senses_vsm = pickle.load(senses) 
-        self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
-    
-        # # NLM/LMMS paths and parameters
-        # vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
-        # wsd_encoder_cfg = {
-        #     'model_name_or_path': 'albert-xxlarge-v2',
-        #     'min_seq_len': 0,
-        #     'max_seq_len': 512,
-        #     'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
-        #     'layer_op': 'ws',
-        #     'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
-        #     'subword_op': 'mean'
-        # }
-        # print('Loading NLM and sense embeddings ...')  # (takes a while)
-        # self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
-        # self.senses_vsm = SensesVSM(vecs_path, normalize=True)
         # with open('./results_save/wsd_encoder.pkl', "wb") as wsd: 
         #     pickle.dump(self.wsd_encoder, wsd)
         # with open('./results_save/senses_vsm.pkl', "wb") as senses: 
         #     pickle.dump(self.senses_vsm, senses)
+        
+        # with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
+        #     self.wsd_encoder = pickle.load(wsd)
+        # with open('./results_save/senses_vsm.pkl', "rb") as senses:
+        #     self.senses_vsm = pickle.load(senses) 
+        
+        self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
+        # NLM/LMMS paths and parameters
+        vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
+        wsd_encoder_cfg = {
+            'model_name_or_path': 'albert-xxlarge-v2',
+            'min_seq_len': 0,
+            'max_seq_len': 512,
+            'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
+            'layer_op': 'ws',
+            'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
+            'subword_op': 'mean'
+        }
+        print('Loading NLM and sense embeddings ...')  # (takes a while)
+        self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
+        self.senses_vsm = SensesVSM(vecs_path, normalize=True)
+
         print('Done')
         
     def judge(self, lemma=None, postag=None):
@@ -197,7 +198,7 @@ class disambiguation(object):
 
 
 def event_sense_mapping(dis, file_name):
-    batch = 32
+    batch = 16
     sentence_batch = []
     all_events_batch = []
     line_num_batch = []
@@ -276,7 +277,7 @@ if __name__ == '__main__':
             mailhost=('smtp.qq.com', 25),
             fromaddr='524139952@qq.com',
             toaddrs='weishuchong19@mails.ucas.ac.cn',
-            subject='代码出现问题啦！！！',
+            subject='代码出现问题啦!!!',
             credentials=('524139952@qq.com', 'wyftpscaofhucbdg'))
         # 4. 单独设置 mail_handler 的日志级别为 ERROR
         mail_handler.setLevel(logging.ERROR)

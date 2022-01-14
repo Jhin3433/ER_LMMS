@@ -44,27 +44,27 @@ class disambiguation(object):
         print("Spacy load successfully!")
 
 
-        with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
-            self.wsd_encoder = pickle.load(wsd)
-        with open('./results_save/senses_vsm.pkl', "rb") as senses:
-            self.senses_vsm = pickle.load(senses) 
+        # with open('./results_save/wsd_encoder.pkl', "rb") as wsd:
+        #     self.wsd_encoder = pickle.load(wsd)
+        # with open('./results_save/senses_vsm.pkl', "rb") as senses:
+        #     self.senses_vsm = pickle.load(senses) 
         self.wn_utils = WN_Utils()  # WordNet auxilliary methods (just for describing results)
     
         # # NLM/LMMS paths and parameters
-        # vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
+        vecs_path = './data/vectors/lmms-sp-wsd.albert-xxlarge-v2.vectors.txt'
 
-        # wsd_encoder_cfg = {
-        #     'model_name_or_path': 'albert-xxlarge-v2',
-        #     'min_seq_len': 0,
-        #     'max_seq_len': 512,
-        #     'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
-        #     'layer_op': 'ws',
-        #     'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
-        #     'subword_op': 'mean'
-        # }
-        # print('Loading NLM and sense embeddings ...')  # (takes a while)
-        # self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
-        # self.senses_vsm = SensesVSM(vecs_path, normalize=True)
+        wsd_encoder_cfg = {
+            'model_name_or_path': 'albert-xxlarge-v2',
+            'min_seq_len': 0,
+            'max_seq_len': 512,
+            'layers': [-n for n in range(1, 12 + 1)],  # all layers, with reversed indices
+            'layer_op': 'ws',
+            'weights_path': 'data/weights/lmms-sp-wsd.albert-xxlarge-v2.weights.txt',
+            'subword_op': 'mean'
+        }
+        print('Loading NLM and sense embeddings ...')  # (takes a while)
+        self.wsd_encoder = TransformersEncoder(wsd_encoder_cfg)
+        self.senses_vsm = SensesVSM(vecs_path, normalize=True)
         # with open('./results_save/wsd_encoder.pkl', "wb") as wsd: 
         #     pickle.dump(self.wsd_encoder, wsd)
         # with open('./results_save/senses_vsm.pkl', "wb") as senses: 
