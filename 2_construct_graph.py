@@ -35,22 +35,29 @@ class event_sense_graph:
             #判断event节点是否已添加到图中
             if event not in self.G:
                 self.G.add_node(event, type = "event")
+                logging.info("Event node -> {} is added.".format(event)) 
             for arg, sense in event_sense_mapping.items():
                 if sense[0] not in self.G: #判断synset节点是否在图中
                     self.G.add_node(sense[0], type = "synset")
+                    logging.info("Synent node -> {} is added.".format(sense[0])) 
+
                 if self.G.has_edge(sense[0], event) is not True: #判断synset节点和event节点是否有边连接
                     self.G.add_edge(sense[0], event, arg = arg, sim_weight = sense[1], type = "event_synset_edge")
+                    logging.info("The edge between {} --- {} is added. ".format(sense[0], event)) 
                 else:
                     sim = nx.get_edge_attributes(self.G, 'sim_weight')
                     if sim[sense[0], event] < sense[1]:
                         self.G[sense[0]][event]['sim_weight'] = sense[1]
+                        logging.info("The edge between {} --- {} sim_weight is changed from {} to {}.".format(sense[0], event, self.G[sense[0]][event]['sim_weight'], sense[1]))  
+                    
         #synset和synset之间的关系未连接
 
     def multi_graph_from_json(self, dir_name = "./results_save/event_sense_mapping_json" ): 
         for path, dir_list, file_list in os.walk(dir_name):  
             for file_name in file_list:
                 if re.search("event_sense_mapping_\d+.json", file_name) is not None:
-                    self.single_graph_from_json(os.path.join(path, file_name))     
+                    self.single_graph_from_json(os.path.join(path, file_name))    
+                    logging.info("{} is constructed.".format(file_name)) 
                 else:
                     continue
         self.synset_link_synset()
@@ -74,6 +81,7 @@ class event_sense_graph:
                 
 if __name__ == "__main__":
     logging.basicConfig(filename='2_construct_graph.log', format='%(asctime)s | %(levelname)s | %(message)s', level=logging.DEBUG, filemode='w') #有filename是文件日志输出,filemode是’w’的话，文件会被覆盖之前生成的文件会被覆盖
+
 
     esg = event_sense_graph()
     esg.multi_graph_from_json()

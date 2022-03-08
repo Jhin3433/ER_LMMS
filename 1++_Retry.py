@@ -220,7 +220,7 @@ def event_sense_mapping(dis, file_name, line_continue):
     
     with open(os.path.join(base_path, file_name)) as f:
         for line_num, line in enumerate(f): #line_num从0开始
-            if line_num <= int(line_continue):
+            if line_num <= int(line_continue): #1999.txt: or line_num == 43994:
                 continue
             logger.info("Process from line {}".format(line_num))
             line_num_batch.append(line_num)#添加batch
@@ -230,14 +230,24 @@ def event_sense_mapping(dis, file_name, line_continue):
             raw_single_data = line.split("|SENT") #一个file
             for sentence in raw_single_data:
                 ele = sentence.strip("|").split("|")
-                sentence = ele[2]
+                try:
+                    sentence = ele[2]
+                except:
+                    logger.info("IndexError: list index out of range. Current line is {}".format(line_num))
+                    continue
+                if sentence == "is" or sentence == "HAS" or sentence == "BE": #1995.txt 95332行,1998.txt 59762行, 2000.txt 88303行
+                    continue
                 sentence_batch.append(sentence) #添加batch
                 all_events = []
                 for index in range(3, len(ele)):
                     if ele[index] == "TUP":
                         all_events.append([])  
                     else:
-                        all_events[-1].append(ele[index]) 
+                        try:
+                            all_events[-1].append(ele[index])     
+                        except:
+                            logger.info("IndexError: list index out of range. Current sentence is {}".format(sentence))
+                            
                 all_events_batch.append(all_events)       #添加batch
                 if len(sentence_batch) == batch and len(all_events_batch) == batch:
                     try:
