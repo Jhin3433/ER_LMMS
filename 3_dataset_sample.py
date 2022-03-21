@@ -53,8 +53,17 @@ class dataset_util:
             #     if self.shortest_path[event_positive_pair[0]][neg_event] < 10 or  self.shortest_path[event_positive_pair[1]][neg_event]< 10:
             #         while self.shortest_path[event_positive_pair[0]][neg_event] < 10 or self.shortest_path[event_positive_pair[1]][neg_event] < 10:
             #             neg_events[index] = random.choice(self.event_nodes) 
+            
+            
+            
+
+
+            
             for event_triple in zip(event_positive_pairs, neg_events):
-                f.writelines(synset_node + " ||" + event_triple[0][0]+ " || " + event_triple[0][1]+ " || " + event_triple[1] + " \n")
+                neg_events_arg = []
+                for adj_neg_event in nx.all_neighbors(self.G, event_triple[1]):
+                    neg_events_arg.append(self.G[adj_neg_event][event_triple[1]]['arg'])
+                f.writelines(synset_node + " || " + event_triple[0][0] + "$" + self.G[synset_node][event_triple[0][0]]['arg'] + " || " + event_triple[0][1] + "$" + self.G[synset_node][event_triple[0][1]]['arg'] + " || " + event_triple[1] + "$" + ",".join(neg_events_arg) + " \n")
             #     n = n + 1
             #     if n > 10:
             #         break
